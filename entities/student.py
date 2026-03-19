@@ -5,18 +5,17 @@ class Student:
         self.email_address = email_address
         self.books_checked_out = []
 
-    def checkout_book(self, book):
-        self.books_checked_out.append(book)
-        print(f"{book} has been checked out.")
+    def checkout_book(self, book) -> None:
+        pass
 
-    def request_library_card(self):
-        print("Library card request submitted.")
+    def request_library_card(self) -> None:
+        pass
 
-    def request_deletion(self):
-        print("Account deletion request submitted.")
+    def request_deletion(self) -> None:
+        pass
 
-    def pay_fine(self, amount):
-        print(f"Fine of ${amount} has been paid.")
+    def pay_fine(self, amount: float) -> None:
+        pass
 
     # def display_info(self):
     #     print(f"Telephone Number: {self.telephone_number}")
