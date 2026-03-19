@@ -1,0 +1,25 @@
+class Student:
+    def __init__(self, telephone_number, physical_address, email_address):
+        self.telephone_number = telephone_number
+        self.physical_address = physical_address
+        self.email_address = email_address
+        self.books_checked_out = []
+
+    def checkout_book(self, book):
+        self.books_checked_out.append(book)
+        print(f"{book} has been checked out.")
+
+    def request_library_card(self):
+        print("Library card request submitted.")
+
+    def request_deletion(self):
+        print("Account deletion request submitted.")
+
+    def pay_fine(self, amount):
+        print(f"Fine of ${amount} has been paid.")
+
+    # def display_info(self):
+    #     print(f"Telephone Number: {self.telephone_number}")
+    #     print(f"Physical Address: {self.physical_address}")
+    #     print(f"Email Address: {self.email_address}")
+    #     print(f"Books Checked Out: {self.books_checked_out}")
