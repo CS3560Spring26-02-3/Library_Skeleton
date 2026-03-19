@@ -5,9 +5,11 @@ class StaffAccount:
         self.contact_info = contact_info
         self.ssd_on_record = ssd_on_record
 
+    #checks password and will return a boolean
     def login(self, password: str) -> bool:
         pass
 
+    #Will update contact info and return a string of the new info
     def update_contact_info(self, new_contact_info: str) -> None:
         pass
 

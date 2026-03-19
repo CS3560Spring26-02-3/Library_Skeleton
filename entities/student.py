@@ -5,15 +5,19 @@ class Student:
         self.email_address = email_address
         self.books_checked_out = []
 
+    # Allows for adding book to check out list and takes in a string
     def checkout_book(self, book) -> None:
         pass
 
+    # Allows to send a request for library card
     def request_library_card(self) -> None:
         pass
 
+    # Allows to request deleltion of the account
     def request_deletion(self) -> None:
         pass
 
+    # Will process payment with the input of a float data type
     def pay_fine(self, amount: float) -> None:
         pass
 
