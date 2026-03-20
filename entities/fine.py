@@ -7,6 +7,10 @@ class Fine:
     def check_return_date(self, return_date: str) -> None:
         pass
 
+    # Checks if the book is overdue or has a fine
+    def check_book_status(self, book) -> bool:
+        pass
+
     # Notifies staff if a book is overdue
     def notify_staff(self) -> None:
         pass
@@ -23,6 +27,6 @@ class Fine:
     def check_if_paid(self) -> bool:
         pass
 
-    # Marks the fine as paid, no input required but this could change
-    def mark_as_paid(self) -> None:
+    # Updates the status of checkout (overdue, borrowed, returned)
+    def status_update(self, status: str) -> None:
         pass
