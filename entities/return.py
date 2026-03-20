@@ -1,4 +1,4 @@
-class Fine:
+class Return:
     def __init__(self, paid=False):
         self.paid = paid
 
@@ -23,10 +23,6 @@ class Fine:
     def send_fine(self, amount: float) -> None:
         pass
 
-    # Checks if the fine has been paid, no input required
-    def check_if_paid(self) -> bool:
-        pass
-
-    # Updates the status of checkout (overdue, borrowed, returned)
-    def status_update(self, status: str) -> None:
+    # Checks if there is a active fine
+    def check_fine_status(self) -> bool:
         pass
