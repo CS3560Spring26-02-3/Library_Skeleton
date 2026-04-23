@@ -131,6 +131,12 @@ class LibraryGUI:
         tab_control.add(self.tab_checkout, text='Checkout Book (Student)')
         tab_control.pack(expand=1, fill="both")
 
+        # tk.Button(self.root, text="Logout", command=self.logout).pack(pady=5)
+
+        # tk.Button(self.root, text="Logout", command=self.logout, bg="#cc0000", fg="white").place(relx=0.95, rely=0.02, anchor="ne")
+
+        tk.Button(self.root, text="Logout", command=self.logout, bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
+
         self.add_background(self.tab_add_book)
         self.add_background(self.tab_checkout)
 
@@ -256,6 +262,13 @@ class LibraryGUI:
 #     root = tk.Tk()
 #     app = LibraryGUI(root)
 #     root.mainloop()
+
+    def logout(self):
+        self.root.destroy()
+
+        login_root = tk.Tk()
+        app = LoginSignupGUI(login_root)
+        login_root.mainloop()
 
 if __name__ == "__main__":
     root = tk.Tk()
