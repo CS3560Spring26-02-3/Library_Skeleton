@@ -180,18 +180,43 @@ class LibraryGUI:
         else:
             messagebox.showwarning("Input Error", "Title, Author, and ISBN are required.")
 
-    def process_checkout(self):
-        student_id = self.entry_student_id.get()
-        copy_id = self.entry_copy_id.get()
+    # def process_checkout(self):
+    #     student_id = self.entry_student_id.get()
+    #     copy_id = self.entry_copy_id.get()
+    #
+    #     if student_id and copy_id:
+    #         conn = create_connection()
+    #         if conn:
+    #             try:
+    #                 cursor = conn.cursor()
+    #                 # Maps to Checkouts table in schema.sql
+    #                 query = "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)"
+    #                 values = (student_id, copy_id, datetime.date.today())
+    #                 cursor.execute(query, values)
+    #                 conn.commit()
+    #                 messagebox.showinfo("Success", "Checkout processed successfully!")
+    #             except Exception as e:
+    #                 messagebox.showerror("Database Error", f"Failed to checkout: {e}")
+    #             finally:
+    #                 cursor.close()
+    #                 conn.close()
+    #     else:
+    #          messagebox.showwarning("Input Error", "Both Student ID and Copy ID are required.")
 
-        if student_id and copy_id:
+    def process_checkout(self):
+        copy_id = self.entry_copy_id.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if copy_id:
             conn = create_connection()
             if conn:
                 try:
                     cursor = conn.cursor()
-                    # Maps to Checkouts table in schema.sql
                     query = "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)"
-                    values = (student_id, copy_id, datetime.date.today())
+                    values = (self.current_student_id, copy_id, datetime.date.today())
                     cursor.execute(query, values)
                     conn.commit()
                     messagebox.showinfo("Success", "Checkout processed successfully!")
@@ -201,8 +226,7 @@ class LibraryGUI:
                     cursor.close()
                     conn.close()
         else:
-             messagebox.showwarning("Input Error", "Both Student ID and Copy ID are required.")
-
+            messagebox.showwarning("Input Error", "Copy ID is required.")
 if __name__ == "__main__":
     root = tk.Tk()
     app = LibraryGUI(root)
