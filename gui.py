@@ -104,8 +104,11 @@ class LoginSignupGUI:
                 conn.close()
 
 class LibraryGUI:
-    def __init__(self, root):
+    def __init__(self, root, current_student_id=None, current_student_name=None):
         self.root = root
+        self.current_student_id = current_student_id
+        self.current_student_name = current_student_name
+
         self.root.title("Library Management System")
         self.root.geometry("500x400")
 
