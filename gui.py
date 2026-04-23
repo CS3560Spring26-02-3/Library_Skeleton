@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
 import datetime
 
 # Importing your existing database connection and method
@@ -112,6 +113,15 @@ class LibraryGUI:
         self.root.title("Library Management System")
         self.root.geometry("500x400")
 
+        # ===== BACKGROUND IMAGE START =====
+        # image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook.jpg")
+        # image = image.resize((500, 400))
+        # self.bg_image = ImageTk.PhotoImage(image)
+        #
+        # bg_label = tk.Label(self.root, image=self.bg_image)
+        # bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        # ===== BACKGROUND IMAGE END =====
+
         # Create tabs for different Use Cases
         tab_control = ttk.Notebook(root)
         self.tab_add_book = ttk.Frame(tab_control)
@@ -121,12 +131,16 @@ class LibraryGUI:
         tab_control.add(self.tab_checkout, text='Checkout Book (Student)')
         tab_control.pack(expand=1, fill="both")
 
+        self.add_background(self.tab_add_book)
+        self.add_background(self.tab_checkout)
+
         self.setup_add_book_tab()
         self.setup_checkout_tab()
 
     def setup_add_book_tab(self):
         # UI Elements for Adding a Book
-        tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
+        # tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
+        tk.Label(self.tab_add_book, text="Title:", bg="white").grid(row=0, column=0, pady=10, padx=10)
         self.entry_title = tk.Entry(self.tab_add_book)
         self.entry_title.grid(row=0, column=1)
 
@@ -202,6 +216,17 @@ class LibraryGUI:
     #                 conn.close()
     #     else:
     #          messagebox.showwarning("Input Error", "Both Student ID and Copy ID are required.")
+
+    def add_background(self, parent):
+        image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook.jpg")
+        image = image.resize((500, 400))
+        bg_image = ImageTk.PhotoImage(image)
+
+        bg_label = tk.Label(parent, image=bg_image)
+        bg_label.image = bg_image
+        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+        return bg_label
 
     def process_checkout(self):
         copy_id = self.entry_copy_id.get().strip()
