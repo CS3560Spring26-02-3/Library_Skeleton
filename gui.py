@@ -227,7 +227,12 @@ class LibraryGUI:
                     conn.close()
         else:
             messagebox.showwarning("Input Error", "Copy ID is required.")
+# if __name__ == "__main__":
+#     root = tk.Tk()
+#     app = LibraryGUI(root)
+#     root.mainloop()
+
 if __name__ == "__main__":
     root = tk.Tk()
-    app = LibraryGUI(root)
+    app = LoginSignupGUI(root)
     root.mainloop()
