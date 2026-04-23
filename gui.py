@@ -148,18 +148,25 @@ class LibraryGUI:
 
         tk.Button(self.tab_add_book, text="Add Book", command=self.submit_new_book).grid(row=5, column=1, pady=20)
 
+    # def setup_checkout_tab(self):
+    #     # UI Elements for Checking out a Book
+    #     tk.Label(self.tab_checkout, text="Student ID:").grid(row=0, column=0, pady=10, padx=10)
+    #     self.entry_student_id = tk.Entry(self.tab_checkout)
+    #     self.entry_student_id.grid(row=0, column=1)
+    #
+    #     tk.Label(self.tab_checkout, text="Copy ID:").grid(row=1, column=0, pady=10, padx=10)
+    #     self.entry_copy_id = tk.Entry(self.tab_checkout)
+    #     self.entry_copy_id.grid(row=1, column=1)
+    #
+    #     tk.Button(self.tab_checkout, text="Process Checkout", command=self.process_checkout).grid(row=2, column=1, pady=20)
+
     def setup_checkout_tab(self):
-        # UI Elements for Checking out a Book
-        tk.Label(self.tab_checkout, text="Student ID:").grid(row=0, column=0, pady=10, padx=10)
-        self.entry_student_id = tk.Entry(self.tab_checkout)
-        self.entry_student_id.grid(row=0, column=1)
-
-        tk.Label(self.tab_checkout, text="Copy ID:").grid(row=1, column=0, pady=10, padx=10)
+        tk.Label(self.tab_checkout, text="Copy ID:").grid(row=0, column=0, pady=10, padx=10)
         self.entry_copy_id = tk.Entry(self.tab_checkout)
-        self.entry_copy_id.grid(row=1, column=1)
+        self.entry_copy_id.grid(row=0, column=1)
 
-        tk.Button(self.tab_checkout, text="Process Checkout", command=self.process_checkout).grid(row=2, column=1, pady=20)
-
+        tk.Button(self.tab_checkout, text="Process Checkout", command=self.process_checkout).grid(row=1, column=1,
+                                                                                                  pady=20)
     def submit_new_book(self):
         title = self.entry_title.get()
         author = self.entry_author.get()
