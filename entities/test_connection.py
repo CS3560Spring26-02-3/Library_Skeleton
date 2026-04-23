@@ -13,7 +13,7 @@ def test_db_connection():
         )
 
         if connection.is_connected():
-            db_info = connection.get_server_info()
+            db_info = connection.server_info
             print(f"Connected to MySQL Server")
             
             cursor = connection.cursor()
