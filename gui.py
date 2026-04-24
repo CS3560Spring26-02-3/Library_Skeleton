@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import datetime
-
+import cv2
 # Importing your existing database connection and method
 from entities.main import add_new_book, create_connection
 
@@ -11,6 +11,13 @@ class LoginSignupGUI:
         self.root = root
         self.root.title("Library Login")
         self.root.geometry("400x300")
+
+        # image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook (1).jpg")
+        # image = image.resize((400, 300))
+        # self.login_bg_image = ImageTk.PhotoImage(image)
+        #
+        # bg_label = tk.Label(self.root, image=self.login_bg_image)
+        # bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
         tab_control = ttk.Notebook(root)
 
@@ -21,8 +28,13 @@ class LoginSignupGUI:
         tab_control.add(self.tab_signup, text="Sign Up")
         tab_control.pack(expand=1, fill="both")
 
+        self.add_login_background(self.tab_login)
+        self.add_login_background(self.tab_signup)
+
         self.setup_login_tab()
         self.setup_signup_tab()
+
+
 
     def setup_login_tab(self):
         tk.Label(self.tab_login, text="Email:").grid(row=0, column=0, padx=10, pady=10)
@@ -72,6 +84,17 @@ class LoginSignupGUI:
             finally:
                 cursor.close()
                 conn.close()
+
+    def add_login_background(self, parent):
+        image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook (1).jpg")
+        image = image.resize((400, 300))
+        bg_image = ImageTk.PhotoImage(image)
+
+        bg_label = tk.Label(parent, image=bg_image)
+        bg_label.image = bg_image
+        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+        return bg_label
 
     def login_student(self):
         email = self.entry_login_email.get().strip()
