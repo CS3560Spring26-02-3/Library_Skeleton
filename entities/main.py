@@ -35,3 +35,29 @@ def add_new_book(title, author, isbn, genre, category):
         finally:
             cursor.close()
             conn.close()
+
+# Method to add a physical copy of a book
+def add_book_copy(isbn, location, status="Available"):
+    conn = create_connection()
+    if conn:
+        cursor = conn.cursor()
+        # copy_id is AUTO_INCREMENT, so we only need to provide isbn, status, and location
+        query = "INSERT INTO BookCopies (isbn, status, location) VALUES (%s, %s, %s)"
+        values = (isbn, status, location)
+        
+        try:
+            cursor.execute(query, values)
+            conn.commit()
+            
+            # cursor.lastrowid fetches the auto-incremented copy_id that MySQL just generated
+            new_copy_id = cursor.lastrowid 
+            print(f"Copy added successfully! The new copy_id is: {new_copy_id}")
+            
+            return new_copy_id
+            
+        except Error as e:
+            print(f"Failed to add book copy: {e}")
+            return None
+        finally:
+            cursor.close()
+            conn.close()
