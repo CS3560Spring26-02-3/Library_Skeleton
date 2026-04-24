@@ -124,15 +124,17 @@ class LibraryGUI:
         self.root.title("Library Management System")
         self.root.geometry("500x400")
 
-        # Create tabs for different Use Cases
         tab_control = ttk.Notebook(root)
         self.tab_add_book = ttk.Frame(tab_control)
         self.tab_add_copy = ttk.Frame(tab_control)
         self.tab_checkout = ttk.Frame(tab_control)
+        self.tab_return = ttk.Frame(tab_control)
 
-        tab_control.add(self.tab_add_book, text='Add New Book (Staff)')
-        tab_control.add(self.tab_add_copy, text='Add Book Copy (Staff)')
-        tab_control.add(self.tab_checkout, text='Checkout Book (Student)')
+        tab_control.add(self.tab_add_book, text='Add Book (Staff)')
+        tab_control.add(self.tab_add_copy, text='Add Copy (Staff)')
+        tab_control.add(self.tab_checkout, text='Checkout (Student)')
+        tab_control.add(self.tab_return, text='Return Book (Student)')
+        
         tab_control.pack(expand=1, fill="both")
 
         tk.Button(self.root, text="Logout", command=self.logout, bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
@@ -140,6 +142,7 @@ class LibraryGUI:
         self.setup_add_book_tab()
         self.setup_add_copy_tab()
         self.setup_checkout_tab()
+        self.setup_return_tab()
 
     def setup_add_book_tab(self):
         # UI Elements for Adding a Book
@@ -188,7 +191,6 @@ class LibraryGUI:
             messagebox.showwarning("Input Error", "Title, Author, and ISBN are required.")
 
     def process_checkout(self):
-        # Get the ISBN from the new entry box
         isbn = self.entry_checkout_isbn.get().strip()
 
         if not self.current_student_id:
@@ -204,36 +206,95 @@ class LibraryGUI:
             try:
                 cursor = conn.cursor()
                 
-                # STEP 1: Find ONE available copy of this specific book
+                # NEW RULE: Check if the student already has a copy of this book checked out
+                check_existing_query = """
+                    SELECT c.checkout_id 
+                    FROM Checkouts c 
+                    JOIN BookCopies bc ON c.copy_id = bc.copy_id 
+                    WHERE c.student_id = %s AND bc.isbn = %s
+                """
+                cursor.execute(check_existing_query, (self.current_student_id, isbn))
+                
+                if cursor.fetchone():
+                    # If fetchone() returns data, they already have it! Stop the checkout.
+                    messagebox.showwarning("Limit Reached", "You already have a copy of this book checked out!")
+                    return
+
+                # If they don't have it, proceed to find ONE available copy
                 find_copy_query = "SELECT copy_id FROM BookCopies WHERE isbn = %s AND status = 'Available' LIMIT 1"
                 cursor.execute(find_copy_query, (isbn,))
                 available_copy = cursor.fetchone()
 
-                # If a copy was found...
                 if available_copy:
-                    copy_id = available_copy[0] # Extract the ID from the tuple
+                    copy_id = available_copy[0]
                     
-                    # STEP 2: Create the checkout record
                     checkout_query = "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)"
                     cursor.execute(checkout_query, (self.current_student_id, copy_id, datetime.date.today()))
                     
-                    # STEP 3: Mark the physical copy as 'Checked Out' so it can't be taken again
                     update_status_query = "UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s"
                     cursor.execute(update_status_query, (copy_id,))
                     
-                    # Commit both changes to the database at the same time
                     conn.commit()
-                    
                     messagebox.showinfo("Success", f"Checkout successful!\n\nYou have checked out Copy ID: {copy_id}")
-                    self.entry_checkout_isbn.delete(0, tk.END) # Clear the box
-                    
-                # If no copy was found (either doesn't exist, or all are checked out)...
+                    self.entry_checkout_isbn.delete(0, tk.END)
                 else:
                     messagebox.showwarning("Unavailable", "Sorry, no copies of this book are currently available.")
 
             except Exception as e:
-                conn.rollback() # Cancels the transaction if something breaks halfway through
+                conn.rollback() 
                 messagebox.showerror("Database Error", f"Failed to checkout: {e}")
+            finally:
+                cursor.close()
+                conn.close()
+
+    def process_return(self):
+        isbn = self.entry_return_isbn.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if not isbn:
+            messagebox.showwarning("Input Error", "ISBN is required.")
+            return
+
+        conn = create_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                
+                # Find the exact checkout record for this student and this book
+                find_checkout_query = """
+                    SELECT c.checkout_id, c.copy_id 
+                    FROM Checkouts c 
+                    JOIN BookCopies bc ON c.copy_id = bc.copy_id 
+                    WHERE c.student_id = %s AND bc.isbn = %s
+                """
+                cursor.execute(find_checkout_query, (self.current_student_id, isbn))
+                checkout_record = cursor.fetchone()
+                
+                if checkout_record:
+                    checkout_id = checkout_record[0]
+                    copy_id = checkout_record[1]
+                    
+                    # STEP 1: Delete the checkout record to "return" it
+                    delete_checkout_query = "DELETE FROM Checkouts WHERE checkout_id = %s"
+                    cursor.execute(delete_checkout_query, (checkout_id,))
+                    
+                    # STEP 2: Make the physical copy available again on the shelves
+                    update_status_query = "UPDATE BookCopies SET status = 'Available' WHERE copy_id = %s"
+                    cursor.execute(update_status_query, (copy_id,))
+                    
+                    conn.commit()
+                    messagebox.showinfo("Success", "Book returned successfully! Thank you.")
+                    self.entry_return_isbn.delete(0, tk.END)
+                else:
+                    # If no record was found, they can't return it
+                    messagebox.showwarning("Not Found", "You don't currently have a copy of this book checked out.")
+
+            except Exception as e:
+                conn.rollback()
+                messagebox.showerror("Database Error", f"Failed to return book: {e}")
             finally:
                 cursor.close()
                 conn.close()
@@ -288,6 +349,13 @@ class LibraryGUI:
                     conn.close()
         else:
             messagebox.showwarning("Input Error", "Both ISBN and Location are required.")
+
+    def setup_return_tab(self):
+        tk.Label(self.tab_return, text="Book ISBN to Return:").grid(row=0, column=0, pady=10, padx=10)
+        self.entry_return_isbn = tk.Entry(self.tab_return)
+        self.entry_return_isbn.grid(row=0, column=1)
+
+        tk.Button(self.tab_return, text="Process Return", command=self.process_return).grid(row=1, column=1, pady=20)
 
 if __name__ == "__main__":
     root = tk.Tk()
