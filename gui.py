@@ -148,9 +148,6 @@ class LibraryGUI:
 
         tk.Button(self.root, text="Logout", command=self.logout, bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
 
-        self.add_background(self.tab_add_book)
-        self.add_background(self.tab_checkout)
-
         self.setup_add_book_tab()
         self.setup_checkout_tab()
 

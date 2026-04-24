@@ -7,8 +7,8 @@ def create_connection():
         # Connect to the local MySQL server
         connection = mysql.connector.connect(
             host='localhost',
-            user='root',
-            password='Tailshort1!!',
+            user='lib_admin',
+            password='LibraryPass123!',
             database='LibrarySystem'
         )
         if connection.is_connected():
