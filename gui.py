@@ -28,9 +28,6 @@ class LoginSignupGUI:
         tab_control.add(self.tab_signup, text="Sign Up")
         tab_control.pack(expand=1, fill="both")
 
-        self.add_login_background(self.tab_login)
-        self.add_login_background(self.tab_signup)
-
         self.setup_login_tab()
         self.setup_signup_tab()
 
@@ -85,16 +82,7 @@ class LoginSignupGUI:
                 cursor.close()
                 conn.close()
 
-    def add_login_background(self, parent):
-        image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook (1).jpg")
-        image = image.resize((400, 300))
-        bg_image = ImageTk.PhotoImage(image)
 
-        bg_label = tk.Label(parent, image=bg_image)
-        bg_label.image = bg_image
-        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-        return bg_label
 
     def login_student(self):
         email = self.entry_login_email.get().strip()
@@ -246,16 +234,7 @@ class LibraryGUI:
     #     else:
     #          messagebox.showwarning("Input Error", "Both Student ID and Copy ID are required.")
 
-    def add_background(self, parent):
-        image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook.jpg")
-        image = image.resize((500, 400))
-        bg_image = ImageTk.PhotoImage(image)
 
-        bg_label = tk.Label(parent, image=bg_image)
-        bg_label.image = bg_image
-        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-        return bg_label
 
     def process_checkout(self):
         copy_id = self.entry_copy_id.get().strip()
