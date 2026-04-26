@@ -3,7 +3,6 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import datetime
 import cv2
-# Importing your existing database connection and method
 from entities.main import add_new_book, create_connection
 
 class LoginSignupGUI:
@@ -12,26 +11,20 @@ class LoginSignupGUI:
         self.root.title("Library Login")
         self.root.geometry("400x300")
 
-        # image = Image.open(r"C:\Users\Abel\Downloads\book-library-with-open-textbook (1).jpg")
-        # image = image.resize((400, 300))
-        # self.login_bg_image = ImageTk.PhotoImage(image)
-        #
-        # bg_label = tk.Label(self.root, image=self.login_bg_image)
-        # bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-
         tab_control = ttk.Notebook(root)
 
         self.tab_login = ttk.Frame(tab_control)
         self.tab_signup = ttk.Frame(tab_control)
+        self.tab_staff = ttk.Frame(tab_control)
 
         tab_control.add(self.tab_login, text="Login")
         tab_control.add(self.tab_signup, text="Sign Up")
+        tab_control.add(self.tab_staff, text="Staff Login")
         tab_control.pack(expand=1, fill="both")
 
         self.setup_login_tab()
         self.setup_signup_tab()
-
-
+        self.setup_staff_tab()
 
     def setup_login_tab(self):
         tk.Label(self.tab_login, text="Email:").grid(row=0, column=0, padx=10, pady=10)
@@ -82,8 +75,6 @@ class LoginSignupGUI:
                 cursor.close()
                 conn.close()
 
-
-
     def login_student(self):
         email = self.entry_login_email.get().strip()
         pin = self.entry_login_pin.get().strip()
@@ -103,9 +94,8 @@ class LoginSignupGUI:
                 if student:
                     messagebox.showinfo("Success", f"Welcome, {student[1]}!")
                     self.root.destroy()
-
                     main_root = tk.Tk()
-                    app = LibraryGUI(main_root, current_student_id=student[0], current_student_name=student[1])
+                    app = LibraryGUI(main_root, current_student_id=student[0], current_student_name=student[1], current_role='student')
                     main_root.mainloop()
                 else:
                     messagebox.showerror("Login Failed", "Invalid email or PIN.")
@@ -115,39 +105,85 @@ class LoginSignupGUI:
                 cursor.close()
                 conn.close()
 
+    def setup_staff_tab(self):
+        tk.Label(self.tab_staff, text="Email:").grid(row=0, column=0, padx=10, pady=10)
+        self.entry_staff_email = tk.Entry(self.tab_staff)
+        self.entry_staff_email.grid(row=0, column=1)
+
+        tk.Label(self.tab_staff, text="Password:").grid(row=1, column=0, padx=10, pady=10)
+        self.entry_staff_password = tk.Entry(self.tab_staff, show="*")
+        self.entry_staff_password.grid(row=1, column=1)
+
+        tk.Button(self.tab_staff, text="Staff Login", command=self.login_staff).grid(row=2, column=1, pady=20)
+
+    def login_staff(self):
+        email = self.entry_staff_email.get().strip()
+        password = self.entry_staff_password.get().strip()
+
+        if not email or not password:
+            messagebox.showwarning("Input Error", "Email and Password are required.")
+            return
+
+        conn = create_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                query = "SELECT staff_id, name FROM Staff WHERE email = %s AND password = %s"
+                cursor.execute(query, (email, password))
+                staff = cursor.fetchone()
+
+                if staff:
+                    messagebox.showinfo("Success", f"Welcome, {staff[1]}!")
+                    self.root.destroy()
+                    main_root = tk.Tk()
+                    app = LibraryGUI(main_root, current_role='staff', current_student_name=staff[1])
+                    main_root.mainloop()
+                else:
+                    messagebox.showerror("Login Failed", "Invalid email or password.")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Login failed: {e}")
+            finally:
+                cursor.close()
+                conn.close()
+
+
 class LibraryGUI:
-    def __init__(self, root, current_student_id=None, current_student_name=None):
+    def __init__(self, root, current_student_id=None, current_student_name=None, current_role='student'):
         self.root = root
         self.current_student_id = current_student_id
         self.current_student_name = current_student_name
+        self.current_role = current_role
 
         self.root.title("Library Management System")
         self.root.geometry("500x400")
 
         tab_control = ttk.Notebook(root)
-        self.tab_add_book = ttk.Frame(tab_control)
-        self.tab_add_copy = ttk.Frame(tab_control)
+
+        # Always visible
         self.tab_checkout = ttk.Frame(tab_control)
         self.tab_return = ttk.Frame(tab_control)
+        tab_control.add(self.tab_checkout, text='Checkout')
+        tab_control.add(self.tab_return, text='Return Book')
 
-        tab_control.add(self.tab_add_book, text='Add Book (Staff)')
-        tab_control.add(self.tab_add_copy, text='Add Copy (Staff)')
-        tab_control.add(self.tab_checkout, text='Checkout (Student)')
-        tab_control.add(self.tab_return, text='Return Book (Student)')
-        
+        # Staff only
+        if current_role == 'staff':
+            self.tab_add_book = ttk.Frame(tab_control)
+            self.tab_add_copy = ttk.Frame(tab_control)
+            tab_control.add(self.tab_add_book, text='Add Book (Staff)')
+            tab_control.add(self.tab_add_copy, text='Add Copy (Staff)')
+            self.setup_add_book_tab()
+            self.setup_add_copy_tab()
+
         tab_control.pack(expand=1, fill="both")
 
-        tk.Button(self.root, text="Logout", command=self.logout, bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
+        tk.Button(self.root, text="Logout", command=self.logout,
+                  bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
 
-        self.setup_add_book_tab()
-        self.setup_add_copy_tab()
         self.setup_checkout_tab()
         self.setup_return_tab()
 
     def setup_add_book_tab(self):
-        # UI Elements for Adding a Book
-        # tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
-        tk.Label(self.tab_add_book, text="Title:", bg="white").grid(row=0, column=0, pady=10, padx=10)
+        tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
         self.entry_title = tk.Entry(self.tab_add_book)
         self.entry_title.grid(row=0, column=1)
 
@@ -169,13 +205,30 @@ class LibraryGUI:
 
         tk.Button(self.tab_add_book, text="Add Book", command=self.submit_new_book).grid(row=5, column=1, pady=20)
 
+    def setup_add_copy_tab(self):
+        tk.Label(self.tab_add_copy, text="ISBN (Must match an existing book):").grid(row=0, column=0, pady=10, padx=10)
+        self.entry_copy_isbn = tk.Entry(self.tab_add_copy)
+        self.entry_copy_isbn.grid(row=0, column=1)
+
+        tk.Label(self.tab_add_copy, text="Location (e.g., Shelf 3A):").grid(row=1, column=0, pady=10, padx=10)
+        self.entry_copy_location = tk.Entry(self.tab_add_copy)
+        self.entry_copy_location.grid(row=1, column=1)
+
+        tk.Button(self.tab_add_copy, text="Add Physical Copy", command=self.submit_new_copy).grid(row=2, column=1, pady=20)
+
     def setup_checkout_tab(self):
-        # Changed "Copy ID" to "ISBN"
         tk.Label(self.tab_checkout, text="Book ISBN:").grid(row=0, column=0, pady=10, padx=10)
-        self.entry_checkout_isbn = tk.Entry(self.tab_checkout) 
+        self.entry_checkout_isbn = tk.Entry(self.tab_checkout)
         self.entry_checkout_isbn.grid(row=0, column=1)
 
         tk.Button(self.tab_checkout, text="Process Checkout", command=self.process_checkout).grid(row=1, column=1, pady=20)
+
+    def setup_return_tab(self):
+        tk.Label(self.tab_return, text="Book ISBN to Return:").grid(row=0, column=0, pady=10, padx=10)
+        self.entry_return_isbn = tk.Entry(self.tab_return)
+        self.entry_return_isbn.grid(row=0, column=1)
+
+        tk.Button(self.tab_return, text="Process Return", command=self.process_return).grid(row=1, column=1, pady=20)
 
     def submit_new_book(self):
         title = self.entry_title.get()
@@ -189,6 +242,30 @@ class LibraryGUI:
             messagebox.showinfo("Success", f"Book '{title}' added successfully!")
         else:
             messagebox.showwarning("Input Error", "Title, Author, and ISBN are required.")
+
+    def submit_new_copy(self):
+        isbn = self.entry_copy_isbn.get().strip()
+        location = self.entry_copy_location.get().strip()
+
+        if isbn and location:
+            conn = create_connection()
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    query = "INSERT INTO BookCopies (isbn, location, status) VALUES (%s, %s, %s)"
+                    cursor.execute(query, (isbn, location, "Available"))
+                    conn.commit()
+                    new_copy_id = cursor.lastrowid
+                    messagebox.showinfo("Success", f"Copy added successfully!\n\nThe new Copy ID is: {new_copy_id}")
+                    self.entry_copy_isbn.delete(0, tk.END)
+                    self.entry_copy_location.delete(0, tk.END)
+                except Exception as e:
+                    messagebox.showerror("Database Error", f"Failed to add copy: {e}")
+                finally:
+                    cursor.close()
+                    conn.close()
+        else:
+            messagebox.showwarning("Input Error", "Both ISBN and Location are required.")
 
     def process_checkout(self):
         isbn = self.entry_checkout_isbn.get().strip()
@@ -205,43 +282,32 @@ class LibraryGUI:
         if conn:
             try:
                 cursor = conn.cursor()
-                
-                # NEW RULE: Check if the student already has a copy of this book checked out
                 check_existing_query = """
-                    SELECT c.checkout_id 
-                    FROM Checkouts c 
-                    JOIN BookCopies bc ON c.copy_id = bc.copy_id 
+                    SELECT c.checkout_id FROM Checkouts c
+                    JOIN BookCopies bc ON c.copy_id = bc.copy_id
                     WHERE c.student_id = %s AND bc.isbn = %s
                 """
                 cursor.execute(check_existing_query, (self.current_student_id, isbn))
-                
                 if cursor.fetchone():
-                    # If fetchone() returns data, they already have it! Stop the checkout.
                     messagebox.showwarning("Limit Reached", "You already have a copy of this book checked out!")
                     return
 
-                # If they don't have it, proceed to find ONE available copy
                 find_copy_query = "SELECT copy_id FROM BookCopies WHERE isbn = %s AND status = 'Available' LIMIT 1"
                 cursor.execute(find_copy_query, (isbn,))
                 available_copy = cursor.fetchone()
 
                 if available_copy:
                     copy_id = available_copy[0]
-                    
-                    checkout_query = "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)"
-                    cursor.execute(checkout_query, (self.current_student_id, copy_id, datetime.date.today()))
-                    
-                    update_status_query = "UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s"
-                    cursor.execute(update_status_query, (copy_id,))
-                    
+                    cursor.execute("INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)",
+                                   (self.current_student_id, copy_id, datetime.date.today()))
+                    cursor.execute("UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s", (copy_id,))
                     conn.commit()
                     messagebox.showinfo("Success", f"Checkout successful!\n\nYou have checked out Copy ID: {copy_id}")
                     self.entry_checkout_isbn.delete(0, tk.END)
                 else:
                     messagebox.showwarning("Unavailable", "Sorry, no copies of this book are currently available.")
-
             except Exception as e:
-                conn.rollback() 
+                conn.rollback()
                 messagebox.showerror("Database Error", f"Failed to checkout: {e}")
             finally:
                 cursor.close()
@@ -262,36 +328,22 @@ class LibraryGUI:
         if conn:
             try:
                 cursor = conn.cursor()
-                
-                # Find the exact checkout record for this student and this book
                 find_checkout_query = """
-                    SELECT c.checkout_id, c.copy_id 
-                    FROM Checkouts c 
-                    JOIN BookCopies bc ON c.copy_id = bc.copy_id 
+                    SELECT c.checkout_id, c.copy_id FROM Checkouts c
+                    JOIN BookCopies bc ON c.copy_id = bc.copy_id
                     WHERE c.student_id = %s AND bc.isbn = %s
                 """
                 cursor.execute(find_checkout_query, (self.current_student_id, isbn))
                 checkout_record = cursor.fetchone()
-                
+
                 if checkout_record:
-                    checkout_id = checkout_record[0]
-                    copy_id = checkout_record[1]
-                    
-                    # STEP 1: Delete the checkout record to "return" it
-                    delete_checkout_query = "DELETE FROM Checkouts WHERE checkout_id = %s"
-                    cursor.execute(delete_checkout_query, (checkout_id,))
-                    
-                    # STEP 2: Make the physical copy available again on the shelves
-                    update_status_query = "UPDATE BookCopies SET status = 'Available' WHERE copy_id = %s"
-                    cursor.execute(update_status_query, (copy_id,))
-                    
+                    cursor.execute("DELETE FROM Checkouts WHERE checkout_id = %s", (checkout_record[0],))
+                    cursor.execute("UPDATE BookCopies SET status = 'Available' WHERE copy_id = %s", (checkout_record[1],))
                     conn.commit()
                     messagebox.showinfo("Success", "Book returned successfully! Thank you.")
                     self.entry_return_isbn.delete(0, tk.END)
                 else:
-                    # If no record was found, they can't return it
                     messagebox.showwarning("Not Found", "You don't currently have a copy of this book checked out.")
-
             except Exception as e:
                 conn.rollback()
                 messagebox.showerror("Database Error", f"Failed to return book: {e}")
@@ -301,61 +353,10 @@ class LibraryGUI:
 
     def logout(self):
         self.root.destroy()
-
         login_root = tk.Tk()
         app = LoginSignupGUI(login_root)
         login_root.mainloop()
 
-    def setup_add_copy_tab(self):
-        # UI Elements for Adding a Physical Copy
-        tk.Label(self.tab_add_copy, text="ISBN (Must match an existing book):").grid(row=0, column=0, pady=10, padx=10)
-        self.entry_copy_isbn = tk.Entry(self.tab_add_copy)
-        self.entry_copy_isbn.grid(row=0, column=1)
-
-        tk.Label(self.tab_add_copy, text="Location (e.g., Shelf 3A):").grid(row=1, column=0, pady=10, padx=10)
-        self.entry_copy_location = tk.Entry(self.tab_add_copy)
-        self.entry_copy_location.grid(row=1, column=1)
-
-        tk.Button(self.tab_add_copy, text="Add Physical Copy", command=self.submit_new_copy).grid(row=2, column=1, pady=20)
-
-    def submit_new_copy(self):
-        isbn = self.entry_copy_isbn.get().strip()
-        location = self.entry_copy_location.get().strip()
-
-        if isbn and location:
-            conn = create_connection()
-            if conn:
-                try:
-                    cursor = conn.cursor()
-                    # Status is 'Available' by default based on your schema
-                    query = "INSERT INTO BookCopies (isbn, location, status) VALUES (%s, %s, %s)"
-                    values = (isbn, location, "Available")
-                    
-                    cursor.execute(query, values)
-                    conn.commit()
-                    
-                    # Fetch the auto-incremented ID to show the user
-                    new_copy_id = cursor.lastrowid 
-                    messagebox.showinfo("Success", f"Copy added successfully!\n\nThe new Copy ID is: {new_copy_id}")
-                    
-                    # Clear the input fields after successful entry
-                    self.entry_copy_isbn.delete(0, tk.END)
-                    self.entry_copy_location.delete(0, tk.END)
-                    
-                except Exception as e:
-                    messagebox.showerror("Database Error", f"Failed to add copy: {e}\n(Make sure the ISBN exists in the Books tab first!)")
-                finally:
-                    cursor.close()
-                    conn.close()
-        else:
-            messagebox.showwarning("Input Error", "Both ISBN and Location are required.")
-
-    def setup_return_tab(self):
-        tk.Label(self.tab_return, text="Book ISBN to Return:").grid(row=0, column=0, pady=10, padx=10)
-        self.entry_return_isbn = tk.Entry(self.tab_return)
-        self.entry_return_isbn.grid(row=0, column=1)
-
-        tk.Button(self.tab_return, text="Process Return", command=self.process_return).grid(row=1, column=1, pady=20)
 
 if __name__ == "__main__":
     root = tk.Tk()
