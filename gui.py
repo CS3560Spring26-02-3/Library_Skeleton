@@ -159,7 +159,10 @@ class LibraryGUI:
 
         tab_control = ttk.Notebook(root)
 
-        # Always visible
+        # Search — visible to everyone
+        self.tab_search = ttk.Frame(tab_control)
+        tab_control.add(self.tab_search, text='Search Books')
+
         self.tab_checkout = ttk.Frame(tab_control)
         self.tab_return = ttk.Frame(tab_control)
         tab_control.add(self.tab_checkout, text='Checkout')
@@ -179,6 +182,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Logout", command=self.logout,
                   bg="#cc0000", fg="white").place(relx=0.5, rely=0.95, anchor="center")
 
+        self.setup_search_tab()
         self.setup_checkout_tab()
         self.setup_return_tab()
 
@@ -229,6 +233,77 @@ class LibraryGUI:
         self.entry_return_isbn.grid(row=0, column=1)
 
         tk.Button(self.tab_return, text="Process Return", command=self.process_return).grid(row=1, column=1, pady=20)
+
+    def setup_search_tab(self):
+        tk.Label(self.tab_search, text="Search By:").grid(row=0, column=0, padx=10, pady=10)
+    
+        self.search_type = ttk.Combobox(self.tab_search, values=["Title", "Author", "ISBN", "Genre"], 
+                                     state="readonly", width=10)
+        self.search_type.current(0)  # Default to Title
+        self.search_type.grid(row=0, column=1, padx=5)
+
+        self.entry_search = tk.Entry(self.tab_search, width=25)
+        self.entry_search.grid(row=0, column=2, padx=5)
+
+        tk.Button(self.tab_search, text="Search", command=self.search_books).grid(row=0, column=3, padx=5)
+
+        # Results box with scrollbar
+        frame = tk.Frame(self.tab_search)
+        frame.grid(row=1, column=0, columnspan=4, padx=10, pady=10)
+
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.search_results = tk.Listbox(frame, width=65, height=12, yscrollcommand=scrollbar.set)
+        self.search_results.pack(side=tk.LEFT, fill=tk.BOTH)
+        scrollbar.config(command=self.search_results.yview)
+
+    def search_books(self):
+        search_term = self.entry_search.get().strip()
+        search_by = self.search_type.get()
+
+        if not search_term:
+            messagebox.showwarning("Input Error", "Please enter a search term.")
+        return
+
+        # Map dropdown choice to actual DB column
+        column_map = {
+            "Title": "b.title",
+            "Author": "b.author",
+            "ISBN": "b.isbn",
+            "Genre": "b.genre"
+        }
+        column = column_map[search_by]
+
+        conn = create_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                query = f"""
+                    SELECT b.isbn, b.title, b.author, b.genre, b.category,
+                        COUNT(bc.copy_id) as total_copies,
+                        SUM(CASE WHEN bc.status = 'Available' THEN 1 ELSE 0 END) as available
+                    FROM Books b
+                    LEFT JOIN BookCopies bc ON b.isbn = bc.isbn
+                    WHERE {column} LIKE %s
+                    GROUP BY b.isbn, b.title, b.author, b.genre, b.category
+                """
+                cursor.execute(query, (f"%{search_term}%",))
+                results = cursor.fetchall()
+
+                self.search_results.delete(0, tk.END)
+                if results:
+                    for r in results:
+                        available = r[6] if r[6] else 0
+                        self.search_results.insert(tk.END,
+                            f"{r[1]} | by {r[2]} | ISBN: {r[0]} | Genre: {r[3]} | Available: {available}/{r[5]}")
+                else:
+                    self.search_results.insert(tk.END, "No books found.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Search failed: {e}")
+            finally:
+                cursor.close()
+                conn.close()
 
     def submit_new_book(self):
         title = self.entry_title.get()
