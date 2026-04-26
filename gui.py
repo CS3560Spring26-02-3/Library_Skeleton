@@ -172,10 +172,13 @@ class LibraryGUI:
         if current_role == 'staff':
             self.tab_add_book = ttk.Frame(tab_control)
             self.tab_add_copy = ttk.Frame(tab_control)
+            self.tab_remove_book = ttk.Frame(tab_control)
             tab_control.add(self.tab_add_book, text='Add Book (Staff)')
             tab_control.add(self.tab_add_copy, text='Add Copy (Staff)')
+            tab_control.add(self.tab_remove_book, text='Remove Book (Staff)')
             self.setup_add_book_tab()
             self.setup_add_copy_tab()
+            self.setup_remove_book_tab()
 
         tab_control.pack(expand=1, fill="both")
 
@@ -422,6 +425,77 @@ class LibraryGUI:
             except Exception as e:
                 conn.rollback()
                 messagebox.showerror("Database Error", f"Failed to return book: {e}")
+            finally:
+                cursor.close()
+                conn.close()
+
+    def setup_remove_book_tab(self):
+        tk.Label(self.tab_remove_book, text="Search by Title or ISBN:").grid(row=0, column=0, padx=10, pady=10)
+        self.entry_remove_search = tk.Entry(self.tab_remove_book, width=25)
+        self.entry_remove_search.grid(row=0, column=1, padx=5)
+        tk.Button(self.tab_remove_book, text="Find Book", command=self.find_book_to_remove).grid(row=0, column=2, padx=5)
+
+        self.remove_book_info = tk.Label(self.tab_remove_book, text="", fg="gray")
+        self.remove_book_info.grid(row=1, column=0, columnspan=3, pady=10)
+
+        tk.Button(self.tab_remove_book, text="Remove Book", command=self.remove_book,
+                bg="#cc0000", fg="white").grid(row=2, column=1, pady=10)
+
+        self.current_remove_isbn = None
+
+    def find_book_to_remove(self):
+        search_term = self.entry_remove_search.get().strip()
+        if not search_term:
+            messagebox.showwarning("Input Error", "Please enter a title or ISBN.")
+            return
+
+        conn = create_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                query = "SELECT isbn, title, author, genre FROM Books WHERE isbn = %s OR title LIKE %s"
+                cursor.execute(query, (search_term, f"%{search_term}%"))
+                book = cursor.fetchone()
+
+                if book:
+                    self.current_remove_isbn = book[0]
+                    self.remove_book_info.config(
+                        text=f"Found: '{book[1]}' by {book[2]} | Genre: {book[3]}\nISBN: {book[0]}",
+                        fg="black"
+                    )
+                else:
+                    self.current_remove_isbn = None
+                    self.remove_book_info.config(text="No book found.", fg="red")
+            except Exception as e:
+                messagebox.showerror("Error", f"Search failed: {e}")
+            finally:
+                cursor.close()
+                conn.close()
+
+    def remove_book(self):
+        if not self.current_remove_isbn:
+            messagebox.showwarning("No Book Selected", "Please search for a book first.")
+            return
+
+        confirm = messagebox.askyesno("Confirm Remove",
+            f"Are you sure you want to remove this book?\nISBN: {self.current_remove_isbn}\n\nThis will also remove all copies!")
+
+        if not confirm:
+            return
+
+        conn = create_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM Books WHERE isbn = %s", (self.current_remove_isbn,))
+                conn.commit()
+                messagebox.showinfo("Success", "Book and all its copies have been removed.")
+                self.remove_book_info.config(text="", fg="gray")
+                self.entry_remove_search.delete(0, tk.END)
+                self.current_remove_isbn = None
+            except Exception as e:
+                conn.rollback()
+                messagebox.showerror("Database Error", f"Failed to remove book: {e}")
             finally:
                 cursor.close()
                 conn.close()
