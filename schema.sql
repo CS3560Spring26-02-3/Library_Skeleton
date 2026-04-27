@@ -37,3 +37,14 @@ CREATE TABLE IF NOT EXISTS Checkouts (
     FOREIGN KEY (student_id) REFERENCES Students(student_id),
     FOREIGN KEY (copy_id) REFERENCES BookCopies(copy_id)
 );
+
+-- 5. Staff table for separate staff login
+CREATE TABLE IF NOT EXISTS Staff (
+    staff_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(100)
+);
+
+-- Default staff account
+INSERT INTO Staff (name, email, password) VALUES ('Admin', 'admin@library.com', 'admin123');
