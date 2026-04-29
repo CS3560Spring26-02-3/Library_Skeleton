@@ -46,5 +46,16 @@ CREATE TABLE IF NOT EXISTS Staff (
     password VARCHAR(100)
 );
 
+ALTER TABLE Checkouts ADD COLUMN due_date DATE;
+
+CREATE TABLE IF NOT EXISTS Reservations (
+    reservation_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT,
+    isbn VARCHAR(20),
+    reservation_date DATE,
+    status VARCHAR(50) DEFAULT 'Pending',
+    FOREIGN KEY (student_id) REFERENCES Students(student_id),
+    FOREIGN KEY (isbn) REFERENCES Books(isbn) ON DELETE CASCADE
+);
 -- Default staff account
 INSERT INTO Staff (name, email, password) VALUES ('Admin', 'admin@library.com', 'admin123');
