@@ -1,9 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
-import datetime
-import cv2
-from entities.main import add_new_book, create_connection
+
+from entities.book import Book
+from entities.book_copies import BookCopies
+from entities.book_return import BookReturn
+from entities.checkout import Checkout
+from entities.staff import Staff
+from entities.student import Student
 
 class LoginSignupGUI:
     def __init__(self, root):
@@ -61,19 +64,11 @@ class LoginSignupGUI:
             messagebox.showwarning("Input Error", "All sign up fields are required.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                query = "INSERT INTO Students (name, email, pin) VALUES (%s, %s, %s)"
-                cursor.execute(query, (name, email, pin))
-                conn.commit()
-                messagebox.showinfo("Success", "Account created successfully!")
-            except Exception as e:
-                messagebox.showerror("Database Error", f"Sign up failed: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            Student.create_account(name, email, pin)
+            messagebox.showinfo("Success", "Account created successfully!")
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Sign up failed: {e}")
 
     def login_student(self):
         email = self.entry_login_email.get().strip()
@@ -83,27 +78,23 @@ class LoginSignupGUI:
             messagebox.showwarning("Input Error", "Email and PIN are required.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                query = "SELECT student_id, name FROM Students WHERE email = %s AND pin = %s"
-                cursor.execute(query, (email, pin))
-                student = cursor.fetchone()
-
-                if student:
-                    messagebox.showinfo("Success", f"Welcome, {student[1]}!")
-                    self.root.destroy()
-                    main_root = tk.Tk()
-                    app = LibraryGUI(main_root, current_student_id=student[0], current_student_name=student[1], current_role='student')
-                    main_root.mainloop()
-                else:
-                    messagebox.showerror("Login Failed", "Invalid email or PIN.")
-            except Exception as e:
-                messagebox.showerror("Database Error", f"Login failed: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            student = Student.authenticate(email, pin)
+            if student:
+                messagebox.showinfo("Success", f"Welcome, {student['name']}!")
+                self.root.destroy()
+                main_root = tk.Tk()
+                app = LibraryGUI(
+                    main_root,
+                    current_student_id=student["student_id"],
+                    current_student_name=student["name"],
+                    current_role='student',
+                )
+                main_root.mainloop()
+            else:
+                messagebox.showerror("Login Failed", "Invalid email or PIN.")
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Login failed: {e}")
 
     def setup_staff_tab(self):
         tk.Label(self.tab_staff, text="Email:").grid(row=0, column=0, padx=10, pady=10)
@@ -124,27 +115,18 @@ class LoginSignupGUI:
             messagebox.showwarning("Input Error", "Email and Password are required.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                query = "SELECT staff_id, name FROM Staff WHERE email = %s AND password = %s"
-                cursor.execute(query, (email, password))
-                staff = cursor.fetchone()
-
-                if staff:
-                    messagebox.showinfo("Success", f"Welcome, {staff[1]}!")
-                    self.root.destroy()
-                    main_root = tk.Tk()
-                    app = LibraryGUI(main_root, current_role='staff', current_student_name=staff[1])
-                    main_root.mainloop()
-                else:
-                    messagebox.showerror("Login Failed", "Invalid email or password.")
-            except Exception as e:
-                messagebox.showerror("Database Error", f"Login failed: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            staff = Staff.authenticate(email, password)
+            if staff:
+                messagebox.showinfo("Success", f"Welcome, {staff['name']}!")
+                self.root.destroy()
+                main_root = tk.Tk()
+                app = LibraryGUI(main_root, current_role='staff', current_student_name=staff["name"])
+                main_root.mainloop()
+            else:
+                messagebox.showerror("Login Failed", "Invalid email or password.")
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Login failed: {e}")
 
 
 class LibraryGUI:
@@ -266,63 +248,40 @@ class LibraryGUI:
         search_term = self.entry_search.get().strip()
         search_by = self.search_type.get()
 
-        # Map dropdown choice to actual DB column
-        column_map = {
-            "Title": "b.title",
-            "Author": "b.author",
-            "ISBN": "b.isbn",
-            "Genre": "b.genre"
-        }
-        column = column_map[search_by]
-
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                query = """
-                    SELECT b.isbn, b.title, b.author, b.genre, b.category,
-                        COUNT(bc.copy_id) as total_copies,
-                        COALESCE(SUM(CASE WHEN bc.status = 'Available' THEN 1 ELSE 0 END), 0) as available
-                    FROM Books b
-                    LEFT JOIN BookCopies bc ON b.isbn = bc.isbn
-                """
-                values = ()
-
-                if search_term:
-                    query += f" WHERE {column} LIKE %s"
-                    values = (f"%{search_term}%",)
-
-                query += """
-                    GROUP BY b.isbn, b.title, b.author, b.genre, b.category
-                    ORDER BY b.isbn
-                """
-                cursor.execute(query, values)
-                results = cursor.fetchall()
-
-                self.search_results.delete(0, tk.END)
-                if results:
-                    for r in results:
-                        available = r[6] if r[6] else 0
-                        self.search_results.insert(tk.END,
-                            f"ISBN: {r[0]} | {r[1]} | by {r[2]} | Genre: {r[3]} | Available: {available}/{r[5]}")
-                else:
-                    self.search_results.insert(tk.END, "No books found.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Search failed: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            results = Book.search(search_by, search_term)
+            self.search_results.delete(0, tk.END)
+            if results:
+                for book in results:
+                    self.search_results.insert(
+                        tk.END,
+                        "ISBN: {isbn} | {title} | by {author} | Genre: {genre} | Available: {available}/{total}".format(
+                            isbn=book["isbn"],
+                            title=book["title"],
+                            author=book["author"],
+                            genre=book["genre"],
+                            available=book["available"],
+                            total=book["total_copies"],
+                        ),
+                    )
+            else:
+                self.search_results.insert(tk.END, "No books found.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Search failed: {e}")
 
     def submit_new_book(self):
-        title = self.entry_title.get()
-        author = self.entry_author.get()
-        isbn = self.entry_isbn.get()
-        genre = self.entry_genre.get()
-        category = self.entry_category.get()
+        title = self.entry_title.get().strip()
+        author = self.entry_author.get().strip()
+        isbn = self.entry_isbn.get().strip()
+        genre = self.entry_genre.get().strip()
+        category = self.entry_category.get().strip()
 
         if title and author and isbn:
-            add_new_book(title, author, isbn, genre, category)
-            messagebox.showinfo("Success", f"Book '{title}' added successfully!")
+            try:
+                Book.add_new(title, author, isbn, genre, category)
+                messagebox.showinfo("Success", f"Book '{title}' added successfully!")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to add book: {e}")
         else:
             messagebox.showwarning("Input Error", "Title, Author, and ISBN are required.")
 
@@ -331,22 +290,13 @@ class LibraryGUI:
         location = self.entry_copy_location.get().strip()
 
         if isbn and location:
-            conn = create_connection()
-            if conn:
-                try:
-                    cursor = conn.cursor()
-                    query = "INSERT INTO BookCopies (isbn, location, status) VALUES (%s, %s, %s)"
-                    cursor.execute(query, (isbn, location, "Available"))
-                    conn.commit()
-                    new_copy_id = cursor.lastrowid
-                    messagebox.showinfo("Success", f"Copy added successfully!\n\nThe new Copy ID is: {new_copy_id}")
-                    self.entry_copy_isbn.delete(0, tk.END)
-                    self.entry_copy_location.delete(0, tk.END)
-                except Exception as e:
-                    messagebox.showerror("Database Error", f"Failed to add copy: {e}")
-                finally:
-                    cursor.close()
-                    conn.close()
+            try:
+                new_copy_id = BookCopies.add_copy(isbn, location)
+                messagebox.showinfo("Success", f"Copy added successfully!\n\nThe new Copy ID is: {new_copy_id}")
+                self.entry_copy_isbn.delete(0, tk.END)
+                self.entry_copy_location.delete(0, tk.END)
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to add copy: {e}")
         else:
             messagebox.showwarning("Input Error", "Both ISBN and Location are required.")
 
@@ -361,40 +311,14 @@ class LibraryGUI:
             messagebox.showwarning("Input Error", "ISBN is required.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                check_existing_query = """
-                    SELECT c.checkout_id FROM Checkouts c
-                    JOIN BookCopies bc ON c.copy_id = bc.copy_id
-                    WHERE c.student_id = %s AND bc.isbn = %s
-                """
-                cursor.execute(check_existing_query, (self.current_student_id, isbn))
-                if cursor.fetchone():
-                    messagebox.showwarning("Limit Reached", "You already have a copy of this book checked out!")
-                    return
-
-                find_copy_query = "SELECT copy_id FROM BookCopies WHERE isbn = %s AND status = 'Available' LIMIT 1"
-                cursor.execute(find_copy_query, (isbn,))
-                available_copy = cursor.fetchone()
-
-                if available_copy:
-                    copy_id = available_copy[0]
-                    cursor.execute("INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)",
-                                   (self.current_student_id, copy_id, datetime.date.today()))
-                    cursor.execute("UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s", (copy_id,))
-                    conn.commit()
-                    messagebox.showinfo("Success", f"Checkout successful!\n\nYou have checked out Copy ID: {copy_id}")
-                    self.entry_checkout_isbn.delete(0, tk.END)
-                else:
-                    messagebox.showwarning("Unavailable", "Sorry, no copies of this book are currently available.")
-            except Exception as e:
-                conn.rollback()
-                messagebox.showerror("Database Error", f"Failed to checkout: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            copy_id = Checkout.process(self.current_student_id, isbn)
+            messagebox.showinfo("Success", f"Checkout successful!\n\nYou have checked out Copy ID: {copy_id}")
+            self.entry_checkout_isbn.delete(0, tk.END)
+        except ValueError as e:
+            messagebox.showwarning("Checkout Failed", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to checkout: {e}")
 
     def process_return(self):
         isbn = self.entry_return_isbn.get().strip()
@@ -407,32 +331,14 @@ class LibraryGUI:
             messagebox.showwarning("Input Error", "ISBN is required.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                find_checkout_query = """
-                    SELECT c.checkout_id, c.copy_id FROM Checkouts c
-                    JOIN BookCopies bc ON c.copy_id = bc.copy_id
-                    WHERE c.student_id = %s AND bc.isbn = %s
-                """
-                cursor.execute(find_checkout_query, (self.current_student_id, isbn))
-                checkout_record = cursor.fetchone()
-
-                if checkout_record:
-                    cursor.execute("DELETE FROM Checkouts WHERE checkout_id = %s", (checkout_record[0],))
-                    cursor.execute("UPDATE BookCopies SET status = 'Available' WHERE copy_id = %s", (checkout_record[1],))
-                    conn.commit()
-                    messagebox.showinfo("Success", "Book returned successfully! Thank you.")
-                    self.entry_return_isbn.delete(0, tk.END)
-                else:
-                    messagebox.showwarning("Not Found", "You don't currently have a copy of this book checked out.")
-            except Exception as e:
-                conn.rollback()
-                messagebox.showerror("Database Error", f"Failed to return book: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            BookReturn.process(self.current_student_id, isbn)
+            messagebox.showinfo("Success", "Book returned successfully! Thank you.")
+            self.entry_return_isbn.delete(0, tk.END)
+        except ValueError as e:
+            messagebox.showwarning("Return Failed", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to return book: {e}")
 
     def setup_remove_book_tab(self):
         tk.Label(self.tab_remove_book, text="Search by Title or ISBN:").grid(row=0, column=0, padx=10, pady=10)
@@ -454,28 +360,19 @@ class LibraryGUI:
             messagebox.showwarning("Input Error", "Please enter a title or ISBN.")
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                query = "SELECT isbn, title, author, genre FROM Books WHERE isbn = %s OR title LIKE %s"
-                cursor.execute(query, (search_term, f"%{search_term}%"))
-                book = cursor.fetchone()
-
-                if book:
-                    self.current_remove_isbn = book[0]
-                    self.remove_book_info.config(
-                        text=f"Found: '{book[1]}' by {book[2]} | Genre: {book[3]}\nISBN: {book[0]}",
-                        fg="black"
-                    )
-                else:
-                    self.current_remove_isbn = None
-                    self.remove_book_info.config(text="No book found.", fg="red")
-            except Exception as e:
-                messagebox.showerror("Error", f"Search failed: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            book = Book.find_by_title_or_isbn(search_term)
+            if book:
+                self.current_remove_isbn = book["isbn"]
+                self.remove_book_info.config(
+                    text=f"Found: '{book['title']}' by {book['author']} | Genre: {book['genre']}\nISBN: {book['isbn']}",
+                    fg="black"
+                )
+            else:
+                self.current_remove_isbn = None
+                self.remove_book_info.config(text="No book found.", fg="red")
+        except Exception as e:
+            messagebox.showerror("Error", f"Search failed: {e}")
 
     def remove_book(self):
         if not self.current_remove_isbn:
@@ -488,22 +385,14 @@ class LibraryGUI:
         if not confirm:
             return
 
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM Books WHERE isbn = %s", (self.current_remove_isbn,))
-                conn.commit()
-                messagebox.showinfo("Success", "Book and all its copies have been removed.")
-                self.remove_book_info.config(text="", fg="gray")
-                self.entry_remove_search.delete(0, tk.END)
-                self.current_remove_isbn = None
-            except Exception as e:
-                conn.rollback()
-                messagebox.showerror("Database Error", f"Failed to remove book: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            Book.remove_by_isbn(self.current_remove_isbn)
+            messagebox.showinfo("Success", "Book and all its copies have been removed.")
+            self.remove_book_info.config(text="", fg="gray")
+            self.entry_remove_search.delete(0, tk.END)
+            self.current_remove_isbn = None
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to remove book: {e}")
 
     def logout(self):
         self.root.destroy()

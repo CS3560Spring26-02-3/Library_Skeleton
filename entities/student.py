@@ -1,4 +1,3 @@
-import datetime
 from entities.main import create_connection
 
 class Student:
@@ -8,32 +7,61 @@ class Student:
         self.email_address = email_address
         self.books_checked_out = []
 
+    @classmethod
+    def create_account(cls, name, email, pin):
+        conn = create_connection()
+        if not conn:
+            raise ConnectionError("Could not connect to the database.")
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = "INSERT INTO Students (name, email, pin) VALUES (%s, %s, %s)"
+            cursor.execute(query, (name, email, pin))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+            conn.close()
+
+    @classmethod
+    def authenticate(cls, email, pin):
+        conn = create_connection()
+        if not conn:
+            raise ConnectionError("Could not connect to the database.")
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = "SELECT student_id, name FROM Students WHERE email = %s AND pin = %s"
+            cursor.execute(query, (email, pin))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            return {
+                "student_id": row[0],
+                "name": row[1],
+            }
+        finally:
+            if cursor:
+                cursor.close()
+            conn.close()
+
     # Allows for adding book to check out list
     def checkout_book(self, student_id: int, copy_id: int) -> None:
-        """ Processes a checkout by inserting a record into the Checkouts table. """
-        conn = create_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                # Use current date for the checkout date
-                current_date = datetime.date.today()
-                
-                query = "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)"
-                values = (student_id, copy_id, current_date)
-                
-                cursor.execute(query, values)
-                
-                # Update the BookCopies status to 'Checked Out'
-                update_query = "UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s"
-                cursor.execute(update_query, (copy_id,))
-                
-                conn.commit()
-                print("Book successfully checked out.")
-            except Exception as e:
-                print(f"Error during checkout: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        """Processes a checkout by using the Checkout class."""
+        from entities.checkout import Checkout
+
+        try:
+            Checkout.process_copy(student_id, copy_id)
+            print("Book successfully checked out.")
+        except Exception as e:
+            print(f"Error during checkout: {e}")
 
     # Allows to send a request for library card
     def request_library_card(self) -> None:

@@ -6,6 +6,32 @@ class Staff:
         self.email_address = email_address
         self.physical_address = physical_address
 
+    @classmethod
+    def authenticate(cls, email, password):
+        from entities.main import create_connection
+
+        conn = create_connection()
+        if not conn:
+            raise ConnectionError("Could not connect to the database.")
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = "SELECT staff_id, name FROM Staff WHERE email = %s AND password = %s"
+            cursor.execute(query, (email, password))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            return {
+                "staff_id": row[0],
+                "name": row[1],
+            }
+        finally:
+            if cursor:
+                cursor.close()
+            conn.close()
+
     #Creates a library card and will return a string
     def create_card(self, member_name: str) -> None:
         pass

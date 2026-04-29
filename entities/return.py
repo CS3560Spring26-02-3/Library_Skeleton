@@ -1,7 +1,9 @@
-class Return:
+from entities.book_return import BookReturn
+
+
+class Return(BookReturn):
     def __init__(self, paid=False):
         self.paid = paid
-
 
     #Checks if a book is overdue and the input will be a string for comparison
     def check_return_date(self, return_date: str) -> None:
