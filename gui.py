@@ -240,9 +240,9 @@ class LibraryGUI:
     def setup_search_tab(self):
         tk.Label(self.tab_search, text="Search By:").grid(row=0, column=0, padx=10, pady=10)
     
-        self.search_type = ttk.Combobox(self.tab_search, values=["Title", "Author", "ISBN", "Genre"], 
+        self.search_type = ttk.Combobox(self.tab_search, values=["Title", "Author", "ISBN", "Genre"],
                                      state="readonly", width=10)
-        self.search_type.current(0)  # Default to Title
+        self.search_type.current(2)  # Default to ISBN
         self.search_type.grid(row=0, column=1, padx=5)
 
         self.entry_search = tk.Entry(self.tab_search, width=25)
@@ -260,14 +260,11 @@ class LibraryGUI:
         self.search_results = tk.Listbox(frame, width=65, height=12, yscrollcommand=scrollbar.set)
         self.search_results.pack(side=tk.LEFT, fill=tk.BOTH)
         scrollbar.config(command=self.search_results.yview)
+        self.search_books()
 
     def search_books(self):
         search_term = self.entry_search.get().strip()
         search_by = self.search_type.get()
-
-        if not search_term:
-            messagebox.showwarning("Input Error", "Please enter a search term.")
-            return
 
         # Map dropdown choice to actual DB column
         column_map = {
@@ -282,16 +279,24 @@ class LibraryGUI:
         if conn:
             try:
                 cursor = conn.cursor()
-                query = f"""
+                query = """
                     SELECT b.isbn, b.title, b.author, b.genre, b.category,
                         COUNT(bc.copy_id) as total_copies,
-                        SUM(CASE WHEN bc.status = 'Available' THEN 1 ELSE 0 END) as available
+                        COALESCE(SUM(CASE WHEN bc.status = 'Available' THEN 1 ELSE 0 END), 0) as available
                     FROM Books b
                     LEFT JOIN BookCopies bc ON b.isbn = bc.isbn
-                    WHERE {column} LIKE %s
-                    GROUP BY b.isbn, b.title, b.author, b.genre, b.category
                 """
-                cursor.execute(query, (f"%{search_term}%",))
+                values = ()
+
+                if search_term:
+                    query += f" WHERE {column} LIKE %s"
+                    values = (f"%{search_term}%",)
+
+                query += """
+                    GROUP BY b.isbn, b.title, b.author, b.genre, b.category
+                    ORDER BY b.isbn
+                """
+                cursor.execute(query, values)
                 results = cursor.fetchall()
 
                 self.search_results.delete(0, tk.END)
@@ -299,7 +304,7 @@ class LibraryGUI:
                     for r in results:
                         available = r[6] if r[6] else 0
                         self.search_results.insert(tk.END,
-                            f"{r[1]} | by {r[2]} | ISBN: {r[0]} | Genre: {r[3]} | Available: {available}/{r[5]}")
+                            f"ISBN: {r[0]} | {r[1]} | by {r[2]} | Genre: {r[3]} | Available: {available}/{r[5]}")
                 else:
                     self.search_results.insert(tk.END, "No books found.")
             except Exception as e:
