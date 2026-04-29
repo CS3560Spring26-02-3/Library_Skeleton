@@ -267,7 +267,7 @@ class LibraryGUI:
 
         if not search_term:
             messagebox.showwarning("Input Error", "Please enter a search term.")
-        return
+            return
 
         # Map dropdown choice to actual DB column
         column_map = {
