@@ -59,3 +59,13 @@ CREATE TABLE IF NOT EXISTS Reservations (
 );
 -- Default staff account
 INSERT INTO Staff (name, email, password) VALUES ('Admin', 'admin@library.com', 'admin123');
+-- Time travel Mode if you want to show fine
+-- Uncomment the lines and press bolt to force a book to be late
+-- To revert it put the due date that was given when book was checked out
+-- This will be for "Clean Code" book example
+-- teststudent@gmail.com and pass: 348117
+/*
+UPDATE librarysystem.checkouts 
+SET due_date = '2026-04-22' 
+WHERE copy_id = 6;
+*/
