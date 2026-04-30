@@ -133,6 +133,46 @@ class Book:
                 cursor.close()
             conn.close()
 
+    @classmethod
+    def modify(cls, isbn, title=None, author=None, genre=None, category=None):
+        from entities.main import create_connection
+
+        conn = create_connection()
+        if not conn:
+            raise ConnectionError("Could not connect to database.")
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            fields = []
+            values = []
+
+            if title:
+                fields.append("title=%s")
+                values.append(title)
+
+            if author:
+                fields.append("author=%s")
+                values.append(author)
+
+            if genre:
+                fields.append("genre=%s")
+                values.append(genre)
+
+            if not fields:
+                raise ValueError("No fields provided to update.")
+
+            values.append(isbn)
+            query = f"UPDATE Books SET {', '.join(fields)} WHERE isbn=%s"
+            cursor.execute(query, tuple(values))
+            conn.commit()
+
+        finally:
+            if cursor:
+                cursor.close()
+            conn.close()
+
+
     # def display_info(self):
     #     print(f"Title: {self.title}")
     #     print(f"Author: {self.author}")
