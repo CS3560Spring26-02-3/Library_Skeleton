@@ -17,9 +17,11 @@ class Checkout:
         cursor = None
         try:
             cursor = conn.cursor()
+            today = datetime.datatoday()
+            due_date = today + datetime.timedelta(days=14) #standard 2-week loan
             cursor.execute(
                 "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)",
-                (student_id, copy_id, datetime.date.today()),
+                (student_id, copy_id, today, due_date),
             )
             cursor.execute("UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s", (copy_id,))
             conn.commit()
@@ -75,10 +77,36 @@ class Checkout:
                 cursor.close()
             conn.close()
 
-    # Will display a checkout receipt and requires no input
-    def print_receipt(self) -> None:
-        pass
+    # Receipt and Billing logic
+    def print_receipt(self, student_name: str, book_title: str) -> str:
+        receipt = (
+            f"--- CHECKOUT RECIEPT ---\n"
+            f"STUDENT: {student_name}\n"
+            f"ITEM: {book_title}\n"
+            f"DUE DATE: {self.return_date}\n"
+            f"------------------------\n"
+            f"Thank you for using the library!"
+        )
+        return receipt
+    def create_billing_summary(self, student_name: str, days_late: int, book_title: str) -> str:
+        """Generates a formal bill for overdue books."""
+        daily_rate = 0.50
+        total_fine = float(max(0, days_late) * daily_rate)
+        
+        bill_text = (
+            f"--- OFFICIAL LIBRARY BILL ---\n"
+            f"DATE: {datetime.date.today()}\n"
+            f"STUDENT: {student_name}\n"
+            f"ITEM: {book_title}\n"
+            f"STATUS: {days_late} Days Overdue\n"
+            f"-----------------------------\n"
+            f"TOTAL FINE DUE: ${total_fine:.2f}\n"
+            f"Please settle this at the front desk."
+        )
+        return bill_text
+
 
     # Updates the status upon checkout (overdue, borrowed, returned)
-    def status_update(self, status: str) -> None:
-        pass
+    def status_update(self, status: str) -> str:
+        """Returns a string describing the current status update."""
+        return f"System Alert: Transaction status updated to '{status}'."
