@@ -1,3 +1,4 @@
+import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -7,6 +8,7 @@ from entities.book_return import BookReturn
 from entities.checkout import Checkout
 from entities.staff import Staff
 from entities.student import Student
+from entities.overdueBook import OverdueBook
 
 class LoginSignupGUI:
     def __init__(self, root):
@@ -313,6 +315,15 @@ class LibraryGUI:
 
         try:
             copy_id = Checkout.process(self.current_student_id, isbn)
+            #Calculate a theoretical due date for the receipt
+            # We assume a 14-day loan period for the visual receipt
+            due_date_val = datetime.date.today() + datetime.timedelta(days=14)
+
+            # Initialize Checkout class to use the print_receipt method
+            receipt_generator = Checkout(return_date=str(due_date_val))
+            receipt_text = receipt_generator.print_receipt(self.current_student_name, f"ISBN: {isbn}")
+            
+            # Show the formal receipt
             messagebox.showinfo("Success", f"Checkout successful!\n\nYou have checked out Copy ID: {copy_id}")
             self.entry_checkout_isbn.delete(0, tk.END)
         except ValueError as e:
@@ -332,11 +343,48 @@ class LibraryGUI:
             return
 
         try:
+            # 1. PRE-PROCESS: We need to get the due_date and title BEFORE the record is deleted
+            from entities.main import create_connection
+            conn = create_connection()
+            cursor = conn.cursor()
+            
+            # Query to find the specific checkout details for this student/book
+            query = """
+                SELECT c.checkout_id, c.copy_id, b.title, c.due_date 
+                FROM Checkouts c 
+                JOIN BookCopies bc ON c.copy_id = bc.copy_id 
+                JOIN Books b ON bc.isbn = b.isbn
+                WHERE c.student_id = %s AND b.isbn = %s
+            """
+            cursor.execute(query, (self.current_student_id, isbn))
+            record = cursor.fetchone()
+
+            if not record:
+                messagebox.showwarning("Not Found", "You do not have this book checked out.")
+                return
+
+            checkout_id, copy_id, title, due_date = record
+
+            # 2. Process the return in the database (this deletes the checkout)
             BookReturn.process(self.current_student_id, isbn)
-            messagebox.showinfo("Success", "Book returned successfully! Thank you.")
+            
+            # 3. INTEGRATION: Check for fines using OverdueBook
+            ovd = OverdueBook(checkout_id, self.current_student_id, copy_id, due_date)
+            days_late = ovd.calculate_days_overdue()
+
+            if days_late > 0:
+                # 4.  If late, show the formal bill
+                billing_gen = Checkout(return_date=str(datetime.date.today()))
+                bill_message = billing_gen.create_billing_summary(self.current_student_name, days_late, title)
+                messagebox.showinfo("Return Processed - Fine Due", bill_message)
+            else:
+                # Standard success message
+                messagebox.showinfo("Success", f"'{title}' returned on time! Thank you.")
+            
             self.entry_return_isbn.delete(0, tk.END)
-        except ValueError as e:
-            messagebox.showwarning("Return Failed", str(e))
+            cursor.close()
+            conn.close()
+
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to return book: {e}")
 
