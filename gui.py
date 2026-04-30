@@ -157,12 +157,15 @@ class LibraryGUI:
             self.tab_add_book = ttk.Frame(tab_control)
             self.tab_add_copy = ttk.Frame(tab_control)
             self.tab_remove_book = ttk.Frame(tab_control)
+            self.tab_modify_book = ttk.Frame(tab_control)
             tab_control.add(self.tab_add_book, text='Add Book (Staff)')
             tab_control.add(self.tab_add_copy, text='Add Copy (Staff)')
             tab_control.add(self.tab_remove_book, text='Remove Book (Staff)')
+            tab_control.add(self.tab_modify_book, text='Modify Book (Staff)')
             self.setup_add_book_tab()
             self.setup_add_copy_tab()
             self.setup_remove_book_tab()
+            self.setup_modify_book_tab()
 
         tab_control.pack(expand=1, fill="both")
 
@@ -441,6 +444,103 @@ class LibraryGUI:
             self.current_remove_isbn = None
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to remove book: {e}")
+
+
+    def setup_modify_book_tab(self):
+        tk.Label(self.tab_modify_book, text="Search by ISBN:").grid(row=0, column=0, padx=10, pady=10)
+    
+        self.entry_modify_search = tk.Entry(self.tab_modify_book, width=25)
+        self.entry_modify_search.grid(row=0, column=1, padx=5)
+
+        tk.Button(
+        self.tab_modify_book,
+        text="Load Book",
+        command=self.load_book_for_modify
+        ).grid(row=0, column=2, padx=5)
+
+        self.modify_book_info = tk.Label(self.tab_modify_book, text="", fg="gray")
+        self.modify_book_info.grid(row=1, column=0, columnspan=3, pady=10)
+
+        tk.Label(self.tab_modify_book, text="New Title:").grid(row=2, column=0)
+        self.entry_mod_title = tk.Entry(self.tab_modify_book)
+        self.entry_mod_title.grid(row=2, column=1)
+
+        tk.Label(self.tab_modify_book, text="New Author:").grid(row=3, column=0)
+        self.entry_mod_author = tk.Entry(self.tab_modify_book)
+        self.entry_mod_author.grid(row=3, column=1)
+
+        tk.Label(self.tab_modify_book, text="New Genre:").grid(row=4, column=0)
+        self.entry_mod_genre = tk.Entry(self.tab_modify_book)
+        self.entry_mod_genre.grid(row=4, column=1)
+
+
+        tk.Button(
+        self.tab_modify_book,
+        text="Update Book",
+        command=self.modify_book
+        ).grid(row=6, column=1, pady=10)
+
+        self.current_modify_isbn = None
+
+
+    def load_book_for_modify(self):
+        search_term = self.entry_modify_search.get().strip()
+
+        if not search_term:
+            messagebox.showwarning("Input Error", "Please enter an ISBN.")
+            return
+
+        try:
+            book = Book.find_by_title_or_isbn(search_term)
+
+            if book:
+                self.current_modify_isbn = book["isbn"]
+                self.modify_book_info.config(
+                    text=f"Editing: {book['title']} by {book['author']}",
+                    fg="black"
+                )
+            else:
+                self.current_modify_isbn = None
+                self.modify_book_info.config(text="Book not found", fg="red")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Search failed: {e}")
+
+        
+
+    def modify_book(self):
+        if not self.current_modify_isbn:
+            messagebox.showwarning("No Book Selected", "Please load a book first.")
+            return
+
+        title = self.entry_mod_title.get().strip()
+        author = self.entry_mod_author.get().strip()
+        genre = self.entry_mod_genre.get().strip()
+
+        try:
+            Book.modify(
+               self.current_modify_isbn,
+                title if title else None,
+                author if author else None,
+                genre if genre else None,
+             )
+
+            messagebox.showinfo("Success", "Book updated successfully!")
+
+            self.modify_book_info.config(text="")
+            self.entry_modify_search.delete(0, tk.END)
+            self.entry_mod_title.delete(0, tk.END)
+            self.entry_mod_author.delete(0, tk.END)
+            self.entry_mod_genre.delete(0, tk.END)
+
+            
+            self.current_modify_isbn = None
+
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to update book: {e}")
+
+
+    
 
     def logout(self):
         self.root.destroy()
