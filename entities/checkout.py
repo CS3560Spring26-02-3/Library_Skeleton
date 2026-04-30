@@ -106,6 +106,57 @@ class Checkout:
         return bill_text
 
 
+    @classmethod
+    def renew(cls, student_id, isbn, extra_days=7):
+        from entities.main import create_connection
+        import datetime
+
+        if extra_days <= 0:
+            raise ValueError("Renewal days must be a positive number.")
+
+        if extra_days > 14:
+            raise ValueError("You cannot extend more than 14 days at a time.")
+
+        conn = create_connection()
+        if not conn:
+            raise ConnectionError("Could not connect to database.")
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+
+            query = """
+                SELECT c.checkout_id, c.due_date FROM Checkouts c JOIN BookCopies bc ON c.copy_id = bc.copy_id
+                WHERE c.student_id = %s AND bc.isbn = %s
+            """
+            cursor.execute(query, (student_id, isbn))
+            row = cursor.fetchone()
+
+            if not row:
+                raise ValueError("No active checkout found for this book.")
+
+            checkout_id, current_due = row
+
+            if current_due is None:
+                current_due = datetime.date.today()
+
+            new_due = current_due + datetime.timedelta(days=extra_days)
+
+            update_query = """
+                UPDATE Checkouts SET due_date = %s WHERE checkout_id = %s """
+            
+            cursor.execute(update_query, (new_due, checkout_id))
+            conn.commit()
+
+            return new_due
+
+        finally:
+            if cursor:
+                cursor.close()
+            conn.close()
+
+
+
     # Updates the status upon checkout (overdue, borrowed, returned)
     def status_update(self, status: str) -> str:
         """Returns a string describing the current status update."""
