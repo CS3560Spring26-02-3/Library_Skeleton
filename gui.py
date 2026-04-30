@@ -149,8 +149,10 @@ class LibraryGUI:
 
         self.tab_checkout = ttk.Frame(tab_control)
         self.tab_return = ttk.Frame(tab_control)
+        self.tab_renew = ttk.Frame(tab_control)
         tab_control.add(self.tab_checkout, text='Checkout')
         tab_control.add(self.tab_return, text='Return Book')
+        tab_control.add(self.tab_renew, text='Renew Book')
 
         # Staff only
         if current_role == 'staff':
@@ -175,6 +177,7 @@ class LibraryGUI:
         self.setup_search_tab()
         self.setup_checkout_tab()
         self.setup_return_tab()
+        self.setup_renew_tab()
 
     def setup_add_book_tab(self):
         tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
@@ -538,6 +541,54 @@ class LibraryGUI:
 
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to update book: {e}")
+
+    def setup_renew_tab(self):
+        tk.Label(self.tab_renew, text="Book ISBN:").grid(row=0, column=0, padx=10, pady=10)
+
+        self.entry_renew_isbn = tk.Entry(self.tab_renew)
+        self.entry_renew_isbn.grid(row=0, column=1)
+
+        tk.Label(self.tab_renew, text="Extra Days (optional):").grid(row=1, column=0, padx=10, pady=10)
+
+        self.entry_renew_days = tk.Entry(self.tab_renew)
+        self.entry_renew_days.insert(0, "7")  # default renew period
+        self.entry_renew_days.grid(row=1, column=1)
+
+        tk.Button(
+        self.tab_renew,
+        text="Renew Book",
+        command=self.process_renew
+        ).grid(row=2, column=1, pady=20)
+
+
+    def process_renew(self):
+        isbn = self.entry_renew_isbn.get().strip()
+        days = self.entry_renew_days.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if not isbn:
+            messagebox.showwarning("Input Error", "ISBN is required.")
+            return
+
+        try:
+            extra_days = int(days) if days else 7
+
+            new_due = Checkout.renew(self.current_student_id, isbn, extra_days)
+
+            messagebox.showinfo(
+                "Success",
+                f"Book renewed successfully!\nNew due date: {new_due}"
+            )
+
+            self.entry_renew_isbn.delete(0, tk.END)
+
+        except ValueError as e:
+            messagebox.showwarning("Renew Failed", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", str(e))
 
 
     
