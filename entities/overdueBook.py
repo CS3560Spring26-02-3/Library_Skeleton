@@ -5,8 +5,18 @@ class OverdueBook:
         self.checkout_id = checkout_id
         self.student_id = student_id
         self.copy_id = copy_id
-        self.due_date = due_date
-        self.fine_rate = fine_rate # e.g., $0.50 per day late
+        self.due_date = self._coerce_due_date(due_date)
+        self.fine_rate = fine_rate
+
+    @staticmethod
+    def _coerce_due_date(due_date) -> datetime.date:
+        if isinstance(due_date, datetime.datetime):
+            return due_date.date()
+        if isinstance(due_date, datetime.date):
+            return due_date
+        if isinstance(due_date, str):
+            return datetime.date.fromisoformat(due_date)
+        raise ValueError("A valid due_date is required to calculate overdue fines.")
 
     def calculate_days_overdue(self) -> int:
         """Calculates the number of days past the due date."""

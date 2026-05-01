@@ -2,6 +2,7 @@ class BookReturn:
     @classmethod
     def process(cls, student_id, isbn):
         from entities.main import create_connection
+        from entities.reserveBook import ReserveBook
 
         conn = create_connection()
         if not conn:
@@ -22,9 +23,16 @@ class BookReturn:
                 raise ValueError("You don't currently have a copy of this book checked out.")
 
             cursor.execute("DELETE FROM Checkouts WHERE checkout_id = %s", (checkout_record[0],))
-            cursor.execute("UPDATE BookCopies SET status = 'Available' WHERE copy_id = %s", (checkout_record[1],))
+            assigned_student_id = ReserveBook.assign_returned_copy_to_next_reservation(
+                cursor,
+                isbn,
+                checkout_record[1],
+            )
             conn.commit()
-            return checkout_record[1]
+            return {
+                "copy_id": checkout_record[1],
+                "assigned_student_id": assigned_student_id,
+            }
         except Exception:
             conn.rollback()
             raise

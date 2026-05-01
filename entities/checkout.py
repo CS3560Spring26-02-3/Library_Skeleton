@@ -2,6 +2,8 @@ import datetime
 
 
 class Checkout:
+    LOAN_DAYS = 14
+
     def __init__(self, return_date, books_checked_out=None):
         self.return_date = return_date
         self.books_checked_out = books_checked_out if books_checked_out is not None else []
@@ -17,10 +19,10 @@ class Checkout:
         cursor = None
         try:
             cursor = conn.cursor()
-            today = datetime.datatoday()
-            due_date = today + datetime.timedelta(days=14) #standard 2-week loan
+            today = datetime.date.today()
+            due_date = today + datetime.timedelta(days=cls.LOAN_DAYS)
             cursor.execute(
-                "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)",
+                "INSERT INTO Checkouts (student_id, copy_id, checkout_date, due_date) VALUES (%s, %s, %s, %s)",
                 (student_id, copy_id, today, due_date),
             )
             cursor.execute("UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s", (copy_id,))
@@ -37,6 +39,7 @@ class Checkout:
     @classmethod
     def process(cls, student_id, isbn):
         from entities.main import create_connection
+        from entities.reserveBook import ReserveBook
 
         conn = create_connection()
         if not conn:
@@ -54,6 +57,10 @@ class Checkout:
             if cursor.fetchone():
                 raise ValueError("You already have a copy of this book checked out!")
 
+            next_reservation = ReserveBook.get_next_pending(isbn)
+            if next_reservation and next_reservation[1] != student_id:
+                raise ValueError("This book is reserved for another student.")
+
             find_copy_query = "SELECT copy_id FROM BookCopies WHERE isbn = %s AND status = 'Available' LIMIT 1"
             cursor.execute(find_copy_query, (isbn,))
             available_copy = cursor.fetchone()
@@ -62,11 +69,14 @@ class Checkout:
                 raise ValueError("Sorry, no copies of this book are currently available.")
 
             copy_id = available_copy[0]
+            today = datetime.date.today()
+            due_date = today + datetime.timedelta(days=cls.LOAN_DAYS)
             cursor.execute(
-                "INSERT INTO Checkouts (student_id, copy_id, checkout_date) VALUES (%s, %s, %s)",
-                (student_id, copy_id, datetime.date.today()),
+                "INSERT INTO Checkouts (student_id, copy_id, checkout_date, due_date) VALUES (%s, %s, %s, %s)",
+                (student_id, copy_id, today, due_date),
             )
             cursor.execute("UPDATE BookCopies SET status = 'Checked Out' WHERE copy_id = %s", (copy_id,))
+            ReserveBook.fulfill_for_student(student_id, isbn, cursor)
             conn.commit()
             return copy_id
         except Exception:

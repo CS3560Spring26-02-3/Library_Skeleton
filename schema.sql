@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS Checkouts (
     student_id INT,
     copy_id INT,
     checkout_date DATE,
+    due_date DATE,
     FOREIGN KEY (student_id) REFERENCES Students(student_id),
     FOREIGN KEY (copy_id) REFERENCES BookCopies(copy_id)
 );
@@ -45,8 +46,6 @@ CREATE TABLE IF NOT EXISTS Staff (
     email VARCHAR(100) UNIQUE,
     password VARCHAR(100)
 );
-
-ALTER TABLE Checkouts ADD COLUMN due_date DATE;
 
 CREATE TABLE IF NOT EXISTS Reservations (
     reservation_id INT AUTO_INCREMENT PRIMARY KEY,

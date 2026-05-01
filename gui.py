@@ -9,6 +9,10 @@ from entities.checkout import Checkout
 from entities.staff import Staff
 from entities.student import Student
 from entities.overdueBook import OverdueBook
+from entities.reserveBook import ReserveBook
+
+DEMO_FORCE_OVERDUE_RETURN = False
+DEMO_OVERDUE_DAYS = 5
 
 class LoginSignupGUI:
     def __init__(self, root):
@@ -150,9 +154,11 @@ class LibraryGUI:
         self.tab_checkout = ttk.Frame(tab_control)
         self.tab_return = ttk.Frame(tab_control)
         self.tab_renew = ttk.Frame(tab_control)
+        self.tab_reserve = ttk.Frame(tab_control)
         tab_control.add(self.tab_checkout, text='Checkout')
         tab_control.add(self.tab_return, text='Return Book')
         tab_control.add(self.tab_renew, text='Renew Book')
+        tab_control.add(self.tab_reserve, text='Reserve Book')
 
         # Staff only
         if current_role == 'staff':
@@ -178,6 +184,7 @@ class LibraryGUI:
         self.setup_checkout_tab()
         self.setup_return_tab()
         self.setup_renew_tab()
+        self.setup_reserve_tab()
 
     def setup_add_book_tab(self):
         tk.Label(self.tab_add_book, text="Title:").grid(row=0, column=0, pady=10, padx=10)
@@ -226,6 +233,15 @@ class LibraryGUI:
         self.entry_return_isbn.grid(row=0, column=1)
 
         tk.Button(self.tab_return, text="Process Return", command=self.process_return).grid(row=1, column=1, pady=20)
+
+    def setup_reserve_tab(self):
+        tk.Label(self.tab_reserve, text="Book ISBN:").grid(row=0, column=0, pady=10, padx=10)
+        self.entry_reserve_isbn = tk.Entry(self.tab_reserve)
+        self.entry_reserve_isbn.grid(row=0, column=1)
+
+        tk.Button(self.tab_reserve, text="Place Reservation", command=self.place_reservation).grid(row=1, column=1, pady=10)
+        tk.Button(self.tab_reserve, text="Check Queue Position", command=self.check_reservation_position).grid(row=2, column=1, pady=10)
+        tk.Button(self.tab_reserve, text="Cancel Reservation", command=self.cancel_reservation).grid(row=3, column=1, pady=10)
 
     def setup_search_tab(self):
         tk.Label(self.tab_search, text="Search By:").grid(row=0, column=0, padx=10, pady=10)
@@ -339,6 +355,8 @@ class LibraryGUI:
 
     def process_return(self):
         isbn = self.entry_return_isbn.get().strip()
+        conn = None
+        cursor = None
 
         if not self.current_student_id:
             messagebox.showwarning("Login Required", "No student is logged in.")
@@ -352,11 +370,13 @@ class LibraryGUI:
             # 1. PRE-PROCESS: We need to get the due_date and title BEFORE the record is deleted
             from entities.main import create_connection
             conn = create_connection()
+            if not conn:
+                raise ConnectionError("Could not connect to the database.")
             cursor = conn.cursor()
             
             # Query to find the specific checkout details for this student/book
             query = """
-                SELECT c.checkout_id, c.copy_id, b.title, c.due_date 
+                SELECT c.checkout_id, c.copy_id, b.title, c.checkout_date, c.due_date
                 FROM Checkouts c 
                 JOIN BookCopies bc ON c.copy_id = bc.copy_id 
                 JOIN Books b ON bc.isbn = b.isbn
@@ -369,7 +389,11 @@ class LibraryGUI:
                 messagebox.showwarning("Not Found", "You do not have this book checked out.")
                 return
 
-            checkout_id, copy_id, title, due_date = record
+            checkout_id, copy_id, title, checkout_date, due_date = record
+            if due_date is None:
+                due_date = checkout_date + datetime.timedelta(days=Checkout.LOAN_DAYS)
+            if DEMO_FORCE_OVERDUE_RETURN:
+                due_date = datetime.date.today() - datetime.timedelta(days=DEMO_OVERDUE_DAYS)
 
             # 2. Process the return in the database (this deletes the checkout)
             BookReturn.process(self.current_student_id, isbn)
@@ -388,11 +412,80 @@ class LibraryGUI:
                 messagebox.showinfo("Success", f"'{title}' returned on time! Thank you.")
             
             self.entry_return_isbn.delete(0, tk.END)
-            cursor.close()
-            conn.close()
 
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to return book: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def place_reservation(self):
+        isbn = self.entry_reserve_isbn.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if not isbn:
+            messagebox.showwarning("Input Error", "ISBN is required.")
+            return
+
+        try:
+            reservation = ReserveBook(self.current_student_id, isbn)
+            reservation_id = reservation.place_reservation()
+            position = reservation.check_position_in_queue()
+            messagebox.showinfo(
+                "Reservation Placed",
+                f"Reservation ID: {reservation_id}\nQueue position: {position}"
+            )
+            self.entry_reserve_isbn.delete(0, tk.END)
+        except ValueError as e:
+            messagebox.showwarning("Reservation Failed", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to reserve book: {e}")
+
+    def check_reservation_position(self):
+        isbn = self.entry_reserve_isbn.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if not isbn:
+            messagebox.showwarning("Input Error", "ISBN is required.")
+            return
+
+        try:
+            reservation = ReserveBook(self.current_student_id, isbn)
+            position = reservation.check_position_in_queue()
+            messagebox.showinfo("Queue Position", f"Your queue position is: {position}")
+        except ValueError as e:
+            messagebox.showwarning("Reservation Not Found", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to check reservation: {e}")
+
+    def cancel_reservation(self):
+        isbn = self.entry_reserve_isbn.get().strip()
+
+        if not self.current_student_id:
+            messagebox.showwarning("Login Required", "No student is logged in.")
+            return
+
+        if not isbn:
+            messagebox.showwarning("Input Error", "ISBN is required.")
+            return
+
+        try:
+            reservation = ReserveBook(self.current_student_id, isbn)
+            reservation.cancel_reservation()
+            messagebox.showinfo("Reservation Cancelled", "Your reservation has been cancelled.")
+            self.entry_reserve_isbn.delete(0, tk.END)
+        except ValueError as e:
+            messagebox.showwarning("Reservation Not Found", str(e))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to cancel reservation: {e}")
 
     def setup_remove_book_tab(self):
         tk.Label(self.tab_remove_book, text="Search by Title or ISBN:").grid(row=0, column=0, padx=10, pady=10)
