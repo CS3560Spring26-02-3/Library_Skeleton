@@ -136,16 +136,19 @@ class Checkout:
             cursor = conn.cursor()
 
             query = """
-                SELECT c.checkout_id, c.due_date FROM Checkouts c JOIN BookCopies bc ON c.copy_id = bc.copy_id
-                WHERE c.student_id = %s AND bc.isbn = %s
-            """
+                SELECT c.checkout_id, c.due_date, c.renew_count FROM Checkouts c JOIN BookCopies bc ON c.copy_id = bc.copy_id
+                WHERE c.student_id = %s AND bc.isbn = %s """ #----check
+            
             cursor.execute(query, (student_id, isbn))
             row = cursor.fetchone()
 
             if not row:
                 raise ValueError("No active checkout found for this book.")
 
-            checkout_id, current_due = row
+            checkout_id, current_due, renew_count = row #------for no twice
+
+            if renew_count >= 2:
+                raise ValueError("This book has already been renewed twice.")#---check
 
             if current_due is None:
                 current_due = datetime.date.today()
@@ -156,7 +159,7 @@ class Checkout:
             new_due = current_due + datetime.timedelta(days=extra_days)
 
             update_query = """
-                UPDATE Checkouts SET due_date = %s WHERE checkout_id = %s """
+                UPDATE Checkouts SET due_date = %s, renew_count = renew_count + 1 WHERE checkout_id = %s """
             
             cursor.execute(update_query, (new_due, checkout_id))
             conn.commit()
