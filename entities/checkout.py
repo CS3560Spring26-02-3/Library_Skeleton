@@ -150,6 +150,9 @@ class Checkout:
             if current_due is None:
                 current_due = datetime.date.today()
 
+            if current_due < datetime.date.today():
+                raise ValueError("Cannot renew an overdue book.")
+
             new_due = current_due + datetime.timedelta(days=extra_days)
 
             update_query = """
