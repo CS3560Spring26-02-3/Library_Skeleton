@@ -569,6 +569,10 @@ class LibraryGUI:
         self.entry_mod_genre = tk.Entry(self.tab_modify_book)
         self.entry_mod_genre.grid(row=4, column=1)
 
+        tk.Label(self.tab_modify_book, text="New Category:").grid(row=5, column=0)
+        self.entry_mod_category = tk.Entry(self.tab_modify_book) 
+        self.entry_mod_category.grid(row=5, column=1)
+
 
         tk.Button(
         self.tab_modify_book,
@@ -612,6 +616,7 @@ class LibraryGUI:
         title = self.entry_mod_title.get().strip()
         author = self.entry_mod_author.get().strip()
         genre = self.entry_mod_genre.get().strip()
+        category = self.entry_mod_category.get().strip() 
 
         try:
             Book.modify(
@@ -619,6 +624,8 @@ class LibraryGUI:
                 title if title else None,
                 author if author else None,
                 genre if genre else None,
+                category if category else None, 
+
              )
 
             messagebox.showinfo("Success", "Book updated successfully!")
@@ -628,6 +635,7 @@ class LibraryGUI:
             self.entry_mod_title.delete(0, tk.END)
             self.entry_mod_author.delete(0, tk.END)
             self.entry_mod_genre.delete(0, tk.END)
+            self.entry_mod_category.delete(0, tk.END) 
 
             
             self.current_modify_isbn = None
