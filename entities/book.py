@@ -159,6 +159,10 @@ class Book:
                 fields.append("genre=%s")
                 values.append(genre)
 
+            if category:
+                fields.append("category=%s") 
+                values.append(category)
+
             if not fields:
                 raise ValueError("No fields provided to update.")
 
