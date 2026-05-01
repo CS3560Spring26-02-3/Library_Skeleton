@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS Checkouts (
     copy_id INT,
     checkout_date DATE,
     due_date DATE,
+    renew_count INT DEFAULT 0, 
     FOREIGN KEY (student_id) REFERENCES Students(student_id),
     FOREIGN KEY (copy_id) REFERENCES BookCopies(copy_id)
 );
